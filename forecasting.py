@@ -23,9 +23,18 @@ def forecast_peak_times(df, days_to_forecast=7, confidence_interval=90):
     """
     # Prepare data for Prophet
     # Group by date and count orders
-    data = df.set_index('createdAt')
+    # First, make a copy and ensure timezone is removed (Prophet doesn't support timezones)
+    data = df.copy()
+    if hasattr(data['createdAt'].dt, 'tz') and data['createdAt'].dt.tz is not None:
+        data['createdAt'] = data['createdAt'].dt.tz_localize(None)
+        
+    data = data.set_index('createdAt')
     daily_orders = data.resample('D').size().reset_index()
     daily_orders.columns = ['ds', 'y']
+    
+    # Ensure the ds column has no timezone
+    if hasattr(daily_orders['ds'].dt, 'tz') and daily_orders['ds'].dt.tz is not None:
+        daily_orders['ds'] = daily_orders['ds'].dt.tz_localize(None)
     
     # Create and train Prophet model
     model = Prophet(
