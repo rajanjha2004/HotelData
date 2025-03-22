@@ -171,13 +171,37 @@ def plot_staff_requirements(staffing_results):
     plotly.graph_objects.Figure
         Plotly figure object with the visualization
     """
+    # Handle empty or invalid data
+    if not staffing_results:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No staffing data available",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
     # Convert the staffing results to a dataframe
     df = pd.DataFrame(staffing_results)
+    
+    # Check if the 'date' column is present
+    if 'date' not in df.columns:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Missing 'date' column in staffing data",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    # Convert date to datetime
     df['date'] = pd.to_datetime(df['date'])
     
     # Get staff types (excluding non-staff columns)
-    non_staff_columns = ['date', 'predicted_orders', 'lower_bound', 'upper_bound', 'total_staff']
-    staff_types = [col for col in df.columns if col not in non_staff_columns]
+    staff_columns = []
+    for col in df.columns:
+        if col not in ['date', 'predicted_orders', 'lower_bound', 'upper_bound', 'total_staff']:
+            staff_columns.append(col)
     
     # Create a figure
     fig = go.Figure()
@@ -193,7 +217,7 @@ def plot_staff_requirements(staffing_results):
     ))
     
     # Add trace for each staff type
-    for staff_type in staff_types:
+    for staff_type in staff_columns:
         fig.add_trace(go.Bar(
             x=df['date'],
             y=df[staff_type],
