@@ -38,6 +38,13 @@ st.set_page_config(
 st.title("🏨 Hotel Order Analysis System")
 st.write("Analyze hotel order data, forecast peak times, predict ingredient usage, and optimize staffing needs.")
 
+# Check if user has requested Twilio credentials
+if 'requesting_twilio' in st.session_state and st.session_state['requesting_twilio']:
+    # Request Twilio credentials
+    st.session_state['requesting_twilio'] = False  # Reset flag
+    # We'll use the function directly from the tool
+    st.info("To enable SMS notifications, we need Twilio API credentials. These are used to send text message alerts about peak times, ingredient inventory, and staffing needs. Please set the environment variables TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to continue.")
+
 # Sidebar for uploading data and configuring models
 with st.sidebar:
     st.header("Data Input & Configuration")
@@ -120,12 +127,13 @@ if df_raw is not None:
             st.session_state['preprocessed_data'] = df
         
         # Display tabs for different analyses
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "📊 Data Overview", 
             "⏱️ Peak Time Forecast", 
             "🥗 Ingredient Prediction", 
             "👥 Staffing Optimization",
-            "📈 Revenue Analysis"
+            "📈 Revenue Analysis",
+            "📱 SMS Notifications"
         ])
         
         with tab1:
@@ -519,6 +527,202 @@ if df_raw is not None:
                 f"Total Forecasted Revenue (Next {forecast_days} Days)",
                 f"${total_forecasted_revenue:.2f}"
             )
+        
+        with tab6:
+            st.header("SMS Notifications")
+            
+            # Check if Twilio credentials are set
+            import os
+            twilio_account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+            twilio_auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+            twilio_phone_number = os.environ.get("TWILIO_PHONE_NUMBER")
+            
+            credentials_configured = all([twilio_account_sid, twilio_auth_token, twilio_phone_number])
+            
+            if not credentials_configured:
+                st.warning("⚠️ Twilio credentials not configured. Please set up the credentials below to enable SMS notifications.")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    with st.expander("Configure Twilio Credentials"):
+                        st.info("These credentials will only be stored for the current session and will need to be entered again if you refresh the page. In a production environment, these would be stored securely as environment variables.")
+                        
+                        # Create input fields for Twilio credentials
+                        temp_account_sid = st.text_input("Twilio Account SID", type="password", help="Your Twilio Account SID from the Twilio dashboard")
+                        temp_auth_token = st.text_input("Twilio Auth Token", type="password", help="Your Twilio Auth Token from the Twilio dashboard")
+                        temp_phone_number = st.text_input("Twilio Phone Number", placeholder="+1XXXXXXXXXX", help="The Twilio phone number to send messages from")
+                        
+                        if st.button("Save Credentials"):
+                            # Validate the credentials
+                            if temp_account_sid and temp_auth_token and temp_phone_number:
+                                # Store in session state for temporary use
+                                st.session_state['twilio_account_sid'] = temp_account_sid
+                                st.session_state['twilio_auth_token'] = temp_auth_token
+                                st.session_state['twilio_phone_number'] = temp_phone_number
+                                
+                                st.success("Credentials saved for this session!")
+                                st.info("Please note: These credentials are only stored temporarily for this session. For security reasons, you will need to re-enter them if you refresh the page.")
+                                
+                                # Set the flag to true to enable the SMS functionality
+                                credentials_configured = True
+                            else:
+                                st.error("Please enter all required credentials.")
+                
+                with col2:
+                    st.markdown("### Don't have Twilio credentials?")
+                    st.info("Twilio credentials are required to send SMS notifications. You can get them by signing up for a Twilio account.")
+                    
+                    if st.button("Get Twilio Credentials"):
+                        st.session_state['requesting_twilio'] = True
+                        st.success("Please restart the app to request Twilio credentials.")
+                
+                # If credentials are in session state, use them
+                if 'twilio_account_sid' in st.session_state and 'twilio_auth_token' in st.session_state and 'twilio_phone_number' in st.session_state:
+                    # Override the env vars with session state values
+                    twilio_account_sid = st.session_state['twilio_account_sid']
+                    twilio_auth_token = st.session_state['twilio_auth_token']
+                    twilio_phone_number = st.session_state['twilio_phone_number']
+                    credentials_configured = True
+            
+            # SMS Notification configuration
+            st.subheader("Notification Settings")
+            
+            # Phone number input
+            phone_number = st.text_input(
+                "Recipient Phone Number (include country code, e.g., +1XXXXXXXXXX)",
+                placeholder="+1XXXXXXXXXX"
+            )
+            
+            # Notification types
+            notification_types = st.multiselect(
+                "Select notification types to enable",
+                options=["Peak Time Alerts", "Ingredient Inventory Alerts", "Staffing Requirement Alerts"],
+                default=["Peak Time Alerts"]
+            )
+            
+            # Alert thresholds
+            st.subheader("Alert Thresholds")
+            
+            # Initialize variables with default values
+            peak_threshold = 100
+            inventory_threshold = 80
+            staff_alert_days = 3
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if "Peak Time Alerts" in notification_types:
+                    peak_threshold = st.number_input(
+                        "Order volume threshold for peak alerts",
+                        min_value=0,
+                        value=100,
+                        help="Send alerts when forecasted order volume exceeds this threshold"
+                    )
+                
+                if "Ingredient Inventory Alerts" in notification_types:
+                    inventory_threshold = st.slider(
+                        "Inventory threshold (%)",
+                        min_value=50,
+                        max_value=90,
+                        value=80,
+                        help="Alert when forecasted ingredient usage exceeds this percentage of typical stock"
+                    )
+            
+            with col2:
+                if "Staffing Requirement Alerts" in notification_types:
+                    staff_alert_days = st.slider(
+                        "Days in advance for staffing alerts",
+                        min_value=1,
+                        max_value=7,
+                        value=3,
+                        help="How many days in advance to send staffing alerts"
+                    )
+            
+            # Preview notifications
+            st.subheader("Notification Preview")
+            
+            preview_tab1, preview_tab2, preview_tab3 = st.tabs([
+                "Peak Time Alert", 
+                "Ingredient Alert", 
+                "Staffing Alert"
+            ])
+            
+            with preview_tab1:
+                peak_message = format_peak_time_alert(forecast_result, threshold=peak_threshold if "Peak Time Alerts" in notification_types else None)
+                st.text_area("Peak Time Alert Message", peak_message, height=300, disabled=True)
+            
+            with preview_tab2:
+                # Use the inventory threshold if the alert type is selected, otherwise use the default (80)
+                threshold = inventory_threshold if "Ingredient Inventory Alerts" in notification_types else 80
+                ingredient_message = format_inventory_alert(ingredient_forecast, threshold_pct=threshold)
+                st.text_area("Ingredient Alert Message", ingredient_message, height=300, disabled=True)
+                
+            with preview_tab3:
+                # Get date for staffing alert based on the selected days in advance
+                alert_date = datetime.now() + timedelta(days=staff_alert_days if "Staffing Requirement Alerts" in notification_types else 1)
+                staffing_message = format_staffing_alert(staffing_results, date_filter=alert_date if "Staffing Requirement Alerts" in notification_types else None)
+                st.text_area("Staffing Alert Message", staffing_message, height=300, disabled=True)
+            
+            # Send test SMS button
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                if st.button("Send Test Notification", disabled=not (credentials_configured and phone_number)):
+                    # Determine which notification to send based on selected types
+                    if "Peak Time Alerts" in notification_types:
+                        message_to_send = peak_message
+                        alert_type = "Peak Time"
+                    elif "Ingredient Inventory Alerts" in notification_types:
+                        message_to_send = ingredient_message
+                        alert_type = "Ingredient Inventory"
+                    elif "Staffing Requirement Alerts" in notification_types:
+                        message_to_send = staffing_message
+                        alert_type = "Staffing Requirement"
+                    else:
+                        message_to_send = "Test notification from Hotel Order Analysis System"
+                        alert_type = "Test"
+                    
+                    # Send the SMS
+                    # If we have session state credentials, pass them to the function directly
+                    if 'twilio_account_sid' in st.session_state and 'twilio_auth_token' in st.session_state and 'twilio_phone_number' in st.session_state:
+                        success, result_message = send_twilio_message(
+                            to_phone_number=phone_number, 
+                            message=message_to_send
+                        )
+                    else:
+                        success, result_message = send_twilio_message(
+                            to_phone_number=phone_number, 
+                            message=message_to_send
+                        )
+                    
+                    if success:
+                        st.success(f"{alert_type} alert sent successfully!")
+                        st.info(result_message)
+                    else:
+                        st.error(f"Failed to send SMS: {result_message}")
+            
+            with col2:
+                if not credentials_configured:
+                    st.info("To enable SMS notifications, you need to configure your Twilio API credentials.")
+                elif not phone_number:
+                    st.info("Enter a valid phone number to enable the 'Send Test Notification' button.")
+            
+            # Alert scheduling
+            st.subheader("Schedule Automatic Alerts")
+            
+            st.info("⚙️ Note: In a production environment, you would set up scheduled tasks to automatically send these alerts based on your configurations. This demo version only supports manual sending.")
+            
+            # Display schedule options (for demonstration purposes)
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.checkbox("Daily peak time alerts", value=False, disabled=True)
+            
+            with col2:
+                st.checkbox("Weekly inventory alerts", value=True, disabled=True)
+            
+            with col3:
+                st.checkbox("3-day advance staffing alerts", value=True, disabled=True)
     
     except Exception as e:
         st.error(f"An error occurred during analysis: {str(e)}")

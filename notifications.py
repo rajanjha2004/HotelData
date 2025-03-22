@@ -1,12 +1,8 @@
 import os
 import pandas as pd
+import streamlit as st
 from datetime import datetime, timedelta
 from twilio.rest import Client
-
-# Environment variables for Twilio
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
 
 def send_twilio_message(to_phone_number: str, message: str) -> tuple:
     """
@@ -25,17 +21,33 @@ def send_twilio_message(to_phone_number: str, message: str) -> tuple:
         (success, message) where success is a boolean indicating whether the operation was successful
         and message is a string with the result or error message
     """
+    # Try to get credentials from session state first
+    account_sid = None
+    auth_token = None
+    phone_number = None
+    
+    # Check if credentials are in session state
+    if 'twilio_account_sid' in st.session_state and 'twilio_auth_token' in st.session_state and 'twilio_phone_number' in st.session_state:
+        account_sid = st.session_state['twilio_account_sid']
+        auth_token = st.session_state['twilio_auth_token']
+        phone_number = st.session_state['twilio_phone_number']
+    else:
+        # Fallback to environment variables
+        account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
+        auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+        phone_number = os.environ.get("TWILIO_PHONE_NUMBER")
+    
     # Check if Twilio credentials are available
-    if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
-        return (False, "Twilio credentials are not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables.")
+    if not account_sid or not auth_token or not phone_number:
+        return (False, "Twilio credentials are not configured. Please configure your Twilio credentials.")
     
     try:
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        client = Client(account_sid, auth_token)
         
         # Sending the SMS message
         message_obj = client.messages.create(
             body=message, 
-            from_=TWILIO_PHONE_NUMBER, 
+            from_=phone_number, 
             to=to_phone_number
         )
         
