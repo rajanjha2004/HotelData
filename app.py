@@ -379,13 +379,19 @@ if df_raw is not None:
                 
                 # Display staffing recommendations table
                 st.subheader("Daily Staffing Recommendations")
-                
+
                 staff_df = pd.DataFrame(staffing_results)
-                staff_df['date'] = staff_df['date'].dt.strftime('%Y-%m-%d')
-                staff_df = staff_df.set_index('date')
-                
-                st.dataframe(staff_df)
-                
+
+                staff_df.columns = staff_df.columns.astype(str).str.strip().str.lower()
+
+                if 'createdat' in staff_df.columns:
+                    staff_df['createdat'] = pd.to_datetime(staff_df['createdat'])
+                    staff_df = staff_df.set_index('createdat')
+                    st.dataframe(staff_df)
+                else:
+                    print("⚠️ 'createdAt' column missing in DataFrame!")
+
+                                
                 # Staffing cost estimation
                 st.subheader("Estimated Staffing Costs")
                 
