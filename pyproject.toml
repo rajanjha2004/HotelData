@@ -10,4 +10,5 @@ dependencies = [
     "prophet>=1.1.6",
     "scikit-learn>=1.6.1",
     "streamlit>=1.43.2",
+    "twilio>=9.5.1",
 ]

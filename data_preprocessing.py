@@ -43,8 +43,8 @@ def load_and_preprocess_data(df):
     processed_df = processed_df[processed_df['itemPrice'] >= 0]
     
     # Filter out entries with future timestamps
-    current_date = pd.Timestamp.now()
-    processed_df = processed_df[processed_df['createdAt'] <= current_date]
+    current_date = pd.Timestamp.now().tz_localize(None)
+    processed_df = processed_df[processed_df['createdAt'].dt.tz_localize(None) <= current_date]
     
     # Calculate total price for each item
     processed_df['total_price'] = processed_df['itemPrice'] * processed_df['itemQuantity']

@@ -18,6 +18,13 @@ from visualization import (
     plot_staff_requirements,
     plot_revenue_trends
 )
+from utils import generate_sample_data
+from notifications import (
+    send_twilio_message, 
+    format_peak_time_alert,
+    format_inventory_alert,
+    format_staffing_alert
+)
 
 # Set page configuration
 st.set_page_config(
@@ -35,32 +42,59 @@ st.write("Analyze hotel order data, forecast peak times, predict ingredient usag
 with st.sidebar:
     st.header("Data Input & Configuration")
     
-    uploaded_file = st.file_uploader("Upload CSV file with order data", type=["csv"])
+    st.markdown("### Data Source")
+    data_source = st.radio("Choose a data source", ["Upload a CSV file", "Use sample data for testing"])
     
-    if uploaded_file is not None:
-        # Load the data
-        try:
-            df_raw = pd.read_csv(uploaded_file)
-            st.success(f"Successfully loaded data with {len(df_raw)} rows.")
-        except Exception as e:
-            st.error(f"Error loading data: {e}")
+    if data_source == "Upload a CSV file":
+        uploaded_file = st.file_uploader("Upload CSV file with order data", type=["csv"])
+        
+        if uploaded_file is not None:
+            # Load the data
+            try:
+                df_raw = pd.read_csv(uploaded_file)
+                st.success(f"Successfully loaded data with {len(df_raw)} rows.")
+            except Exception as e:
+                st.error(f"Error loading data: {e}")
+                df_raw = None
+        else:
+            st.info("Please upload order data CSV file to begin analysis.")
+            st.markdown("""
+            ### Expected CSV format:
+            The CSV should contain the following columns:
+            - `orderId`: Unique identifier for each order
+            - `hotelId`: Hotel identification number
+            - `orderNo`: Order number
+            - `itemName`: Name of the ordered item
+            - `itemQuantity`: Quantity of the ordered item
+            - `itemPrice`: Price of the ordered item
+            - `status`: Current status of the order (e.g., completed, pending, canceled)
+            - `createdAt`: Timestamp when the order was placed
+            - `updatedAt`: Timestamp when the order was last updated
+            """)
             df_raw = None
     else:
-        st.info("Please upload order data CSV file to begin analysis.")
-        st.markdown("""
-        ### Expected CSV format:
-        The CSV should contain the following columns:
-        - `orderId`: Unique identifier for each order
-        - `hotelId`: Hotel identification number
-        - `orderNo`: Order number
-        - `itemName`: Name of the ordered item
-        - `itemQuantity`: Quantity of the ordered item
-        - `itemPrice`: Price of the ordered item
-        - `status`: Current status of the order (e.g., completed, pending, canceled)
-        - `createdAt`: Timestamp when the order was placed
-        - `updatedAt`: Timestamp when the order was last updated
-        """)
-        df_raw = None
+        # Generate sample data
+        num_orders = st.slider("Number of sample orders", min_value=100, max_value=5000, value=1000, step=100)
+        
+        # Date range for sample data
+        st.markdown("#### Date Range for Sample Data")
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=90))
+        with col2:
+            end_date = st.date_input("End Date", value=datetime.now())
+        
+        if st.button("Generate Sample Data"):
+            with st.spinner("Generating sample data..."):
+                df_raw = generate_sample_data(
+                    num_orders=num_orders, 
+                    start_date=start_date.strftime("%Y-%m-%d"), 
+                    end_date=end_date.strftime("%Y-%m-%d")
+                )
+                st.success(f"Successfully generated sample data with {len(df_raw)} rows.")
+        else:
+            st.info("Click the 'Generate Sample Data' button to create test data.")
+            df_raw = None
     
     st.header("Analysis Configuration")
     
