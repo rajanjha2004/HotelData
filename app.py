@@ -19,12 +19,7 @@ from visualization import (
     plot_revenue_trends
 )
 from utils import generate_sample_data
-from notifications import (
-    send_twilio_message, 
-    format_peak_time_alert,
-    format_inventory_alert,
-    format_staffing_alert
-)
+# Removed SMS notification imports
 
 # Set page configuration
 st.set_page_config(
