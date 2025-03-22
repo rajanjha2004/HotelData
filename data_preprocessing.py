@@ -44,8 +44,15 @@ def load_and_preprocess_data(df):
     
     # Filter out entries with future timestamps
     current_date = pd.Timestamp.now().tz_localize(None)
-    # Convert createdAt to timezone-naive to ensure proper comparison
-    processed_df = processed_df[processed_df['createdAt'].dt.tz_localize(None).dt.tz_localize(None) <= current_date]
+    
+    # Handle timezone-aware datetime properly - convert to timezone-naive for comparison
+    if hasattr(processed_df['createdAt'].dt, 'tz') and processed_df['createdAt'].dt.tz is not None:
+        processed_df['createdAt_naive'] = processed_df['createdAt'].dt.tz_localize(None)
+        processed_df = processed_df[processed_df['createdAt_naive'] <= current_date]
+        # Drop the temporary column
+        processed_df = processed_df.drop(columns=['createdAt_naive'])
+    else:
+        processed_df = processed_df[processed_df['createdAt'] <= current_date]
     
     # Calculate total price for each item
     processed_df['total_price'] = processed_df['itemPrice'] * processed_df['itemQuantity']

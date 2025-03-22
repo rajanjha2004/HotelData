@@ -186,10 +186,23 @@ if df_raw is not None:
                 # Plot forecast results
                 fig = go.Figure()
                 
-                # Add historical data
+                # Add historical data - note: forecast_result doesn't include 'y', 
+                # so we'll get the actual order counts from the original data
+                # First, prepare a daily count to match the forecast format
+                daily_data = df.set_index('createdAt').resample('D').size().reset_index()
+                daily_data.columns = ['ds', 'y']
+                
+                # Remove timezone if any
+                if hasattr(daily_data['ds'].dt, 'tz') and daily_data['ds'].dt.tz is not None:
+                    daily_data['ds'] = daily_data['ds'].dt.tz_localize(None)
+                
+                # Plot historical data up to the forecast start
+                historical_end_date = forecast_result['ds'].min()
+                historical_data = daily_data[daily_data['ds'] < historical_end_date]
+                
                 fig.add_trace(go.Scatter(
-                    x=forecast_result['ds'][:len(forecast_result)-forecast_days], 
-                    y=forecast_result['y'][:len(forecast_result)-forecast_days],
+                    x=historical_data['ds'], 
+                    y=historical_data['y'],
                     mode='lines',
                     name='Historical'
                 ))
