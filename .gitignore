@@ -1,0 +1,8 @@
+__pycache__
+attached_assets
+.streamlit
+.config/matplotlib
+.replit
+pyproject.toml
+replit.nix
+uv.lock
